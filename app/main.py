@@ -4,6 +4,7 @@ import json
 import grpc
 from grpc_dir import ping_pb2, ping_pb2_grpc
 
+
 IS_DOCKER = os.environ.get("IS_DOCKER", "false")
 if IS_DOCKER in ["true", "True", "TRUE"]:
     print(" dockcer mode running")
@@ -13,6 +14,10 @@ if IS_DOCKER in ["true", "True", "TRUE"]:
     GRPC_TARGET = os.environ.get("GRPC_TARGET", None)
     if GRPC_TARGET is None:
         raise ValueError("GRPC_TARGET is not set")
+
+    PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
+    CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
+    FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "10000"))
 else:
     print(" local mode running")
     import dotenv
@@ -21,11 +26,15 @@ else:
         dotenv.load_dotenv(dotenv_path)
         dns_file = os.environ.get("DNS_FILE", "/etc/dnsmasq.d/local.conf")
         GRPC_TARGET = os.environ.get("GRPC_TARGET", "ping.grpc.sh:5555")
+        PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
+        CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
+        FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "10000"))
     else:
         dns_file = "/etc/dnsmasq.d/local.conf"
         GRPC_TARGET = "ping.grpc.sh:5555"
-
-
+        PING_TYPE:list = "host,nuc,nuk,rpi".split(",")
+        CURL_TYPE:list = "service,worker,grpc".split(",")
+        FETCH_INTERVAL:int = int( "10000")
 app = Flask(__name__)
 
 status = {}
@@ -83,7 +92,7 @@ def check_hosts():
             time.sleep(10)
             continue
 
-        vip_targets, service_targets, host_targets = [], [], []
+        vip_targets, curl_targets, ping_targets = [], [], []
 
         with open(dns_file) as f:
             for line in f:
@@ -109,30 +118,34 @@ def check_hosts():
                 else:
                     continue
 
+                dns_type:str = host.split(".")[1]
                 if host == "VIP.service.sh":
                     vip_targets.append((host, ip))
-                elif host.endswith(".service.sh"):
-                    service_targets.append((host, ip))
-                elif host.endswith(".host.sh"):
-                    host_targets.append((host, ip))
 
+                elif dns_type in PING_TYPE:
+                    ping_targets.append((host, ip))
+                elif dns_type in CURL_TYPE:
+                    curl_targets.append((host, ip))
+                else:
+                    ping_targets.append((host, ip))
+
+    
         print(f"[check_hosts] vip_targets: {len(vip_targets)}")
-        print(f"[check_hosts] service_targets: {len(service_targets)}")
-        print(f"[check_hosts] host_targets: {len(host_targets)}")
-        # gRPC ping for host targets only
-        host_ips = [ip for _, ip in host_targets]
-        grpc_results = grpc_ping(host_ips)
+        print(f"[check_hosts] curl_targets: {len(curl_targets)}")
+        print(f"[check_hosts] ping_targets: {len(ping_targets)}")
 
+        vip_results = grpc_ping(ip_list=[ip for _, ip in vip_targets])
         for host, ip in vip_targets:
-            alive = not ping_host(ip)  # ping 실패가 정상
+            alive = not vip_results.get(ip,  True)  # ping 실패가 정상
             status[host] = {"ip": ip, "alive": alive, "type": "vip"}
 
-        for host, ip in service_targets:
+        for host, ip in curl_targets:
             alive = k3s_health_check(host)
             status[host] = {"ip": ip, "alive": alive, "type": "service"}
 
-        for host, ip in host_targets:
-            alive = grpc_results.get(ip, False)
+        ping_results = grpc_ping(ip_list=[ip for _, ip in ping_targets])
+        for host, ip in ping_targets:
+            alive = ping_results.get(ip, False)
             status[host] = {"ip": ip, "alive": alive, "type": "host"}
 
         # VIP 맨 앞으로 정렬
@@ -140,11 +153,11 @@ def check_hosts():
                                   key=lambda x: (x[1]["type"] != "vip", x[0]))))
 
         print("[status update]", status)
-        time.sleep(10)
+        time.sleep(float(FETCH_INTERVAL/1000))
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", fetch_interval=FETCH_INTERVAL)
 
 @app.route("/status")
 def get_status():

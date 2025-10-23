@@ -68,6 +68,7 @@ h1 { margin-bottom: 10px; }
 
 <script>
 let currentFilter = 'all';
+const fetch_interval = {{ fetch_interval }};
 
 function setFilter(f) {
     currentFilter = f;
@@ -87,9 +88,9 @@ async function fetchStatus() {
         const vipSection = document.getElementById('vip-section');
         content.innerHTML = '';
         vipSection.innerHTML = '';
-
+        const fetch_interval_sec = fetch_interval / 1000;
         document.getElementById('last-updated').textContent =
-            "Last Updated (10초마다 자동갱신): " + formatTime(new Date());
+            "Last Updated (" + fetch_interval_sec + "초마다 자동갱신): " + formatTime(new Date());
 
         // VIP 처리
         for (const [host, info] of Object.entries(data)) {
@@ -147,7 +148,7 @@ async function fetchStatus() {
 
 // 초기 호출 + 주기적 갱신
 fetchStatus();
-setInterval(fetchStatus, 10000);
+setInterval(fetchStatus, fetch_interval);
 setInterval(() => location.reload(), 60000);
 </script>
 </body>
