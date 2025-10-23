@@ -1,0 +1,13 @@
+blinker==1.9.0
+click==8.3.0
+dotenv==0.9.9
+Flask==3.1.2
+grpcio==1.75.1
+grpcio-tools==1.75.1
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+protobuf==6.33.0
+python-dotenv==1.1.1
+typing_extensions==4.15.0
+Werkzeug==3.1.3

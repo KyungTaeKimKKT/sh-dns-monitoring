@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>DNS Monitor</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+h1 { margin-bottom: 10px; }
+.domain-block { margin-bottom: 30px; text-align: left; display: inline-block; }
+.host-card {
+    display: inline-block;
+    width: 180px;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+.host-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.alive { background-color: #c8f7c5; }
+.down { background-color: #f7c5c5; }
+.host-name { font-weight: bold; margin-bottom: 5px; }
+.host-ip { font-size: 0.9em; margin-bottom: 5px; }
+.host-status { font-size: 0.9em; }
+#last-updated { margin-bottom: 20px; font-style: italic; }
+.filter-btn { margin-right: 10px; padding: 5px 10px; }
+#vip-section {
+    margin: 40px auto;
+    text-align: center;
+}
+.vip-card {
+    display: inline-block;
+    width: 360px;
+    padding: 20px;
+    margin: 10px;
+    border-radius: 12px;
+    border: 2px solid #000;
+    font-size: 1.8em;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+.vip-alive { background-color: #a0e8a0; }
+.vip-down { background-color: #e89c9c; }
+</style>
+</head>
+<body>
+
+<div style="position:absolute; top:20px; right:30px;">
+    <button onclick="location.href='/manual_ping'">네트워크 점검</button>
+</div>
+<h1>DNS Host Status</h1>
+<div id="last-updated">Last Updated: --:--:--</div>
+<button class="filter-btn" onclick="setFilter('all')">All</button>
+<button class="filter-btn" onclick="setFilter('alive')">Alive</button>
+<button class="filter-btn" onclick="setFilter('down')">Down</button>
+
+<!-- VIP 전용 섹션 -->
+<div id="vip-section"></div>
+
+<!-- 일반 호스트 출력 영역 -->
+<div id="content"></div>
+
+<script>
+let currentFilter = 'all';
+
+function setFilter(f) {
+    currentFilter = f;
+    fetchStatus();
+}
+
+function formatTime(date) {
+    return date.toLocaleTimeString();
+}
+
+async function fetchStatus() {
+    try {
+        const res = await fetch('/status');
+        const data = await res.json();
+
+        const content = document.getElementById('content');
+        const vipSection = document.getElementById('vip-section');
+        content.innerHTML = '';
+        vipSection.innerHTML = '';
+
+        document.getElementById('last-updated').textContent =
+            "Last Updated (10초마다 자동갱신): " + formatTime(new Date());
+
+        // VIP 처리
+        for (const [host, info] of Object.entries(data)) {
+            if (info.type === 'vip') {
+                const vipCard = document.createElement('div');
+                vipCard.className = 'vip-card ' + (info.alive ? 'vip-alive' : 'vip-down');
+                vipCard.innerHTML = `
+                    <div>${host}</div>
+                    <div style="font-size:0.6em;">IP: ${info.ip}</div>
+                    <div style="font-size:0.6em;">Status: ${info.alive ? 'Alive' : 'Down'}</div>
+                `;
+                vipSection.appendChild(vipCard);
+            }
+        }
+
+        // 일반 도메인 그룹화
+        const domains = {};
+        for (const [host, info] of Object.entries(data)) {
+            if (info.type === 'vip') continue; // VIP는 별도 섹션
+            const parts = host.split(".");
+            const domain = parts.slice(1).join(".") || host;
+            if (!domains[domain]) domains[domain] = [];
+            domains[domain].push({ host: parts[0], ...info });
+        }
+
+        for (const [domain, hosts] of Object.entries(domains)) {
+            const block = document.createElement('div');
+            block.className = 'domain-block';
+            const title = document.createElement('h2');
+            title.textContent = domain;
+            block.appendChild(title);
+
+            hosts.sort((a,b) => a.host.localeCompare(b.host));
+
+            hosts.forEach(h => {
+                if (currentFilter !== 'all' &&
+                    ((currentFilter === 'alive' && !h.alive) ||
+                     (currentFilter === 'down' && h.alive))) return;
+
+                const card = document.createElement('div');
+                card.className = 'host-card ' + (h.alive ? 'alive' : 'down');
+                card.innerHTML = `
+                    <div class="host-name">${h.host}</div>
+                    <div class="host-ip">IP: ${h.ip}</div>
+                    <div class="host-status">Status: ${h.alive ? 'Alive' : 'Down'}</div>`;
+                block.appendChild(card);
+            });
+
+            content.appendChild(block);
+        }
+    } catch (e) {
+        console.error('Error fetching status:', e);
+    }
+}
+
+// 초기 호출 + 주기적 갱신
+fetchStatus();
+setInterval(fetchStatus, 10000);
+setInterval(() => location.reload(), 60000);
+</script>
+</body>
+</html>

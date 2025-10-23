@@ -1,0 +1,13 @@
+1. Flask로 구현
+2. dns에서 설치된 곳에서, 실행
+   -. dnsmasq host 설치형 : /etc/dnsmasq.d/의 file을 읽어서 ( 예로, local.conf )
+   -. pinhole pod 설치형 : mount 된 곳의 file을 읽어서, ( 예로, helm value.yaml 의 volumeMounts 참조 )
+      volumes:
+        - name: etc-pihole
+            hostPath:
+            path: /mnt/pihole/etc-pihole
+            type: DirectoryOrCreate
+
+3. flask 구현
+   -. SVC는 VIP이므로 health-chekc svc를 넣어서 확인 ( /k3s-health)
+   -. host는 grpc로 확인 ( /grpc_ping )

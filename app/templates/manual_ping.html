@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>수동 네트워크 점검</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 30px; text-align: center; }
+h2 { margin-bottom: 20px; }
+
+/* 입력 영역 */
+#input-area {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+#targets {
+    width: 420px;
+    padding: 8px;
+    font-size: 1em;
+}
+button {
+    padding: 8px 14px;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+/* 결과 영역 */
+#results-wrapper {
+    margin-top: 30px;
+    position: relative;
+}
+#legend {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 0.9em;
+}
+#legend span {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-left: 6px;
+}
+.legend-ok { background-color: #b5e8b5; }
+.legend-fail { background-color: #f3b4b4; }
+
+/* 결과 카드 */
+#results {
+    display: grid;
+    grid-template-columns: repeat(10, 120px); /* 정확히 10칸 */
+    gap: 15px;
+    justify-content: center;
+    margin: 40px auto 0;
+}
+.result-card {
+    border-radius: 10px;
+    padding: 10px;
+    height: 60px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    background: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9em;
+    word-break: break-all;
+}
+.result-ok { background-color: #d9f5d9; }
+.result-fail { background-color: #f8d0d0; }
+
+/* 결과 시간 */
+#exec-time {
+    margin-top: 10px;
+    font-style: italic;
+    font-size: 0.9em;
+}
+</style>
+</head>
+<body>
+<h2>수동 네트워크 점검</h2>
+
+<!-- 입력 -->
+<div id="input-area">
+    <input id="targets" placeholder="IP, DNS, CIDR 를 ,(쉼표)로 구분 입력" oninput="validateInput()">
+    <button id="runBtn" disabled onclick="runPing()">실행</button>
+</div>
+
+<!-- 결과 -->
+<div id="results-wrapper">
+    <div id="legend">
+        <span class="legend-ok">정상</span>
+        <span class="legend-fail">실패</span>
+    </div>
+    <div id="exec-time"></div>
+    <div id="results"></div>
+</div>
+
+<script>
+function validateInput() {
+    const input = document.getElementById('targets').value.trim();
+    document.getElementById('runBtn').disabled = input === '';
+}
+
+function ipToNum(ip) {
+    if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return null;
+    return ip.split('.').reduce((acc, val) => acc * 256 + parseInt(val), 0);
+}
+
+function smartSort(a, b) {
+    const ipA = ipToNum(a[0]);
+    const ipB = ipToNum(b[0]);
+    if (ipA !== null && ipB !== null) return ipA - ipB;
+    if (ipA !== null) return -1;
+    if (ipB !== null) return 1;
+    return a[0].localeCompare(b[0]);
+}
+
+async function runPing() {
+    const btn = document.getElementById('runBtn');
+    const input = document.getElementById('targets').value.trim();
+    if (!input) return;
+
+    btn.disabled = true;
+    btn.textContent = "점검 중...";
+
+    const start = performance.now();
+    try {
+        const res = await fetch('/grpc_ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targets: input.split(',').map(x=>x.trim()) })
+        });
+        const data = await res.json();
+        const end = performance.now();
+        const elapsed = Math.round(end - start);
+
+        document.getElementById('exec-time').textContent = `소요시간: ${elapsed} msec`;
+
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = "";
+
+        Object.entries(data)
+            .sort(smartSort)
+            .forEach(([host, ok])=>{
+                const card = document.createElement('div');
+                card.className = `result-card ${ok ? 'result-ok' : 'result-fail'}`;
+                card.textContent = host;
+                resultsDiv.appendChild(card);
+            });
+
+    } catch (err) {
+        alert("오류 발생: " + err);
+    } finally {
+        btn.textContent = "실행";
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

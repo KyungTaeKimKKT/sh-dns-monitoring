@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package ping;
+
+service PingService {
+  rpc CheckIPs (PingRequest) returns (PingResponse);
+}
+
+message PingRequest {
+  repeated string ip_list = 1;  // IP, DNS, CIDR 지원
+}
+
+message PingResult {
+  string target = 1;
+  bool reachable = 2;
+}
+
+message PingResponse {
+  repeated PingResult results = 1;
+}
