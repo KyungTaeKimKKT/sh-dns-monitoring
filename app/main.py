@@ -17,7 +17,7 @@ if IS_DOCKER in ["true", "True", "TRUE"]:
 
     PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
     CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
-    FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "10000"))
+    FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "1"))
 else:
     print(" local mode running")
     import dotenv
@@ -28,13 +28,13 @@ else:
         GRPC_TARGET = os.environ.get("GRPC_TARGET", "ping.grpc.sh:5555")
         PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
         CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
-        FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "10000"))
+        FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "1"))
     else:
         dns_file = "/etc/dnsmasq.d/local.conf"
         GRPC_TARGET = "ping.grpc.sh:5555"
         PING_TYPE:list = "host,nuc,nuk,rpi".split(",")
         CURL_TYPE:list = "service,worker,grpc".split(",")
-        FETCH_INTERVAL:int = int( "10000")
+        FETCH_INTERVAL:int = int( "1")
 app = Flask(__name__)
 
 status = {}
@@ -84,7 +84,7 @@ def k3s_health_check(host) -> bool:
         print(f"[k3s_health_check] Error: {e}")
         return False
 
-def check_hosts():
+def check_hosts() -> dict[str, dict]:
     print("[check_hosts] start monitoring")
     while True:
         if not os.path.exists(dns_file):
@@ -153,7 +153,7 @@ def check_hosts():
                                   key=lambda x: (x[1]["type"] != "vip", x[0]))))
 
         print("[status update]", status)
-        time.sleep(float(FETCH_INTERVAL/1000))
+        return status
 
 @app.route("/")
 def index():
@@ -161,7 +161,7 @@ def index():
 
 @app.route("/status")
 def get_status():
-    return jsonify(status)
+    return jsonify(check_hosts())
 
 @app.route("/flask_status")
 def get_flask_status():

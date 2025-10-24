@@ -55,10 +55,17 @@ h1 { margin-bottom: 10px; }
     <button onclick="location.href='/manual_ping'">네트워크 점검</button>
 </div>
 <h1>DNS Host Status</h1>
+<div style="margin-bottom:10px;">
+    모니터링 주기(초): 
+    <input type="number" id="interval-input" min="1" style="width:60px;">
+    <button id="apply-btn">Apply</button>
+</div>
 <div id="last-updated">Last Updated: --:--:--</div>
 <button class="filter-btn" onclick="setFilter('all')">All</button>
 <button class="filter-btn" onclick="setFilter('alive')">Alive</button>
 <button class="filter-btn" onclick="setFilter('down')">Down</button>
+
+
 
 <!-- VIP 전용 섹션 -->
 <div id="vip-section"></div>
@@ -68,7 +75,8 @@ h1 { margin-bottom: 10px; }
 
 <script>
 let currentFilter = 'all';
-const fetch_interval = {{ fetch_interval }};
+let fetch_interval = parseInt({{ fetch_interval }}) ; // 초 단위
+let intervalId = null;
 
 function setFilter(f) {
     currentFilter = f;
@@ -79,6 +87,8 @@ function formatTime(date) {
     return date.toLocaleTimeString();
 }
 
+
+
 async function fetchStatus() {
     try {
         const res = await fetch('/status');
@@ -88,7 +98,7 @@ async function fetchStatus() {
         const vipSection = document.getElementById('vip-section');
         content.innerHTML = '';
         vipSection.innerHTML = '';
-        const fetch_interval_sec = fetch_interval / 1000;
+        const fetch_interval_sec = document.getElementById('interval-input').value ;   
         document.getElementById('last-updated').textContent =
             "Last Updated (" + fetch_interval_sec + "초마다 자동갱신): " + formatTime(new Date());
 
@@ -146,10 +156,22 @@ async function fetchStatus() {
     }
 }
 
-// 초기 호출 + 주기적 갱신
-fetchStatus();
-setInterval(fetchStatus, fetch_interval);
-setInterval(() => location.reload(), 60000);
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById('interval-input').value = fetch_interval;
+    document.getElementById("apply-btn").addEventListener("click", applyInterval);
+    document.getElementById("apply-btn").click();
+});
+
+function applyInterval() {
+    const val = parseInt(document.getElementById('interval-input').value);
+    if (!isNaN(val) && val > 0) {
+        fetch_interval = val;
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(fetchStatus, fetch_interval * 1000);
+        fetchStatus();
+    }
+}
+
 </script>
 </body>
 </html>
