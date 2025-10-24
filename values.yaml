@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: shinwoohipo/web_dns_monitor
-  tag: "1.3.0"
+  tag: "1.1.0"
   pullPolicy: Always
 
 service:
