@@ -34,7 +34,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: ingress-health
+                name: {{ $.Release.Name }}-{{ $.Values.ingressHealth.namePostfix }}
                 port:
                   number: 80
           {{- end }}

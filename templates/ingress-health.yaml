@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: ingress-health
+  name: {{ .Release.Name }}-{{ .Values.ingressHealth.namePostfix }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: ingress-health
+    app: {{ .Release.Name }}-{{ .Values.ingressHealth.namePostfix }}
 spec:
   containers:
     - name: echo
@@ -18,11 +18,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingress-health
+  name: {{ .Release.Name }}-{{ .Values.ingressHealth.namePostfix }}
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    app: ingress-health
+    app: {{ .Release.Name }}-{{ .Values.ingressHealth.namePostfix }}
   ports:
     - port: 80
       targetPort: 5678

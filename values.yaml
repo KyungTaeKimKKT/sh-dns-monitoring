@@ -64,6 +64,7 @@ serviceAccount:
 ### ✅ ingress-health.yaml 용
 ### ingress.yaml 에서도  true면 맨 앞단에 추가함.
 ingressHealth:
+  namePostfix: ingress-health
   enabled: true
 
 ### ✅ ingress.yaml 용
