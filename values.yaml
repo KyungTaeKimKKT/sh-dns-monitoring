@@ -19,6 +19,12 @@ env:
     value: "/etc/pihole/hosts/custom.list"
   - name: GRPC_TARGET
     value: "ping.grpc.sh:5555"
+  - name: PING_TYPE
+    value: "host,nuc,nuk,rpi"
+  - name: CURL_TYPE
+    value: "service,worker,grpc"
+  - name: FETCH_INTERVAL
+    value: "1"
 
 volumeMounts:
   - name: etc-pihole
