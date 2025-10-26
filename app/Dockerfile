@@ -1,4 +1,4 @@
-### docker build -t shinwoohipo/web_dns_monitor:1.3.0 .
+### docker build -t shinwoohipo/web_dns_monitor:1.2.0 .
 ### docker run -d -p 5000:5000 shinwoohipo/web_dns_monitor:1.2.0
 FROM python:3.10-slim
 

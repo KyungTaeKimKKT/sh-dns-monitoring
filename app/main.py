@@ -3,7 +3,9 @@ import subprocess, threading, time, re, os
 import json
 import grpc
 from grpc_dir import ping_pb2, ping_pb2_grpc
-
+# health
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+from grpc_health.v1 import health as health_srv
 
 IS_DOCKER = os.environ.get("IS_DOCKER", "false")
 if IS_DOCKER in ["true", "True", "TRUE"]:
@@ -17,6 +19,7 @@ if IS_DOCKER in ["true", "True", "TRUE"]:
 
     PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
     CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
+    GRPC_TYPE:list = (os.environ.get("GRPC_TYPE","")).split(",")
     FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "1"))
 else:
     print(" local mode running")
@@ -28,16 +31,29 @@ else:
         GRPC_TARGET = os.environ.get("GRPC_TARGET", "ping.grpc.sh:5555")
         PING_TYPE:list = (os.environ.get("PING_TYPE","")).split(",")
         CURL_TYPE:list = (os.environ.get("CURL_TYPE","")).split(",")
+        GRPC_TYPE:list = (os.environ.get("GRPC_TYPE","")).split(",")
         FETCH_INTERVAL:int = int(os.environ.get("FETCH_INTERVAL", "1"))
     else:
         dns_file = "/etc/dnsmasq.d/local.conf"
         GRPC_TARGET = "ping.grpc.sh:5555"
         PING_TYPE:list = "host,nuc,nuk,rpi".split(",")
         CURL_TYPE:list = "service,worker,grpc".split(",")
+        GRPC_TYPE:list = "grpc".split(",")
         FETCH_INTERVAL:int = int( "1")
 app = Flask(__name__)
 
 status = {}
+
+def grpc_health_check(target:str, timeout:int=2) -> bool:
+  try:
+      with grpc.insecure_channel(target) as ch:
+          stub = health_pb2_grpc.HealthStub(ch)
+          req = health_pb2.HealthCheckRequest(service="")
+          resp = stub.Check(req, timeout=timeout)
+          return resp.status == health_pb2.HealthCheckResponse.SERVING
+  except Exception as e:
+      print(f"[grpc_health_check] {e}")
+      return False
 
 def grpc_ping(ip_list:list[str]) -> dict[str, bool]:
     try:
@@ -92,7 +108,7 @@ def check_hosts() -> dict[str, dict]:
             time.sleep(10)
             continue
 
-        vip_targets, curl_targets, ping_targets = [], [], []
+        vip_targets, curl_targets, ping_targets, grpc_targets = [], [], [], []
 
         with open(dns_file) as f:
             for line in f:
@@ -126,6 +142,8 @@ def check_hosts() -> dict[str, dict]:
                     ping_targets.append((host, ip))
                 elif dns_type in CURL_TYPE:
                     curl_targets.append((host, ip))
+                elif dns_type in GRPC_TYPE:
+                    grpc_targets.append((host, ip))
                 else:
                     ping_targets.append((host, ip))
 
@@ -133,6 +151,7 @@ def check_hosts() -> dict[str, dict]:
         print(f"[check_hosts] vip_targets: {len(vip_targets)}")
         print(f"[check_hosts] curl_targets: {len(curl_targets)}")
         print(f"[check_hosts] ping_targets: {len(ping_targets)}")
+        print(f"[check_hosts] grpc_targets: {len(grpc_targets)}")
 
         vip_results = grpc_ping(ip_list=[ip for _, ip in vip_targets])
         for host, ip in vip_targets:
@@ -147,6 +166,10 @@ def check_hosts() -> dict[str, dict]:
         for host, ip in ping_targets:
             alive = ping_results.get(ip, False)
             status[host] = {"ip": ip, "alive": alive, "type": "host"}
+
+        for host, ip in grpc_targets:
+            alive = grpc_health_check(target = f"{host}:5555")
+            status[host] = {"ip": ip, "alive": alive, "type": "grpc"}
 
         # VIP 맨 앞으로 정렬
         status.update(dict(sorted(status.items(),

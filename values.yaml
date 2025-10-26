@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: shinwoohipo/web_dns_monitor
-  tag: "1.1.0"
+  tag: "1.2.0"
   pullPolicy: Always
 
 service:
@@ -22,7 +22,9 @@ env:
   - name: PING_TYPE
     value: "host,nuc,nuk,rpi"
   - name: CURL_TYPE
-    value: "service,worker,grpc"
+    value: "service,worker"
+  - name: GRPC_TYPE
+    value: "grpc"
   - name: FETCH_INTERVAL
     value: "1"
 

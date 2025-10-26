@@ -2,7 +2,8 @@ blinker==1.9.0
 click==8.3.0
 dotenv==0.9.9
 Flask==3.1.2
-grpcio==1.75.1
+grpcio==1.76.0
+grpcio-health-checking==1.76.0
 grpcio-tools==1.75.1
 itsdangerous==2.2.0
 Jinja2==3.1.6
